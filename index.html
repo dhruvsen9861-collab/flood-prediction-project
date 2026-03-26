@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Flood Risk Prediction</title>
+
+<!-- 📊 Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* 🎨 PREMIUM UI */
+body{margin:0;font-family:Poppins,sans-serif;text-align:center;color:#fff;
+background:linear-gradient(135deg,#0f2027,#203a43,#2c5364)}
+button{padding:10px 15px;margin:10px;border:none;border-radius:8px;
+background:rgba(255,255,255,.1);color:#fff;cursor:pointer;
+backdrop-filter:blur(10px);transition:.3s}
+button:hover{background:#00c6ff;transform:scale(1.05)}
+.card{background:rgba(255,255,255,.08);padding:25px;border-radius:15px;
+width:380px;margin:20px auto;backdrop-filter:blur(12px);
+box-shadow:0 8px 32px rgba(0,0,0,.3)}
+input{padding:10px;width:80%;border:none;border-radius:8px;margin-top:10px}
+
+/* 🚨 ALERT STYLE */
+#alertBox{display:none;position:fixed;top:20px;right:20px;
+color:#fff;padding:12px 18px;border-radius:10px;
+box-shadow:0 0 15px rgba(0,0,0,.4);font-weight:bold}
+
+canvas{margin-top:15px}
+</style>
+</head>
+
+<body>
+
+<!-- 🔥 TOGGLE -->
+<div>
+  <button onclick="toggle(1)">🌐 Live Prediction</button>
+  <button onclick="toggle(0)">🧪 Test Historical Data</button>
+</div>
+
+<!-- 🟢 LIVE -->
+<div id="liveSection" class="card">
+  <h1>🌊 Kota Flood Risk</h1>
+  <p id="rainfall">Loading...</p>
+  <p id="risk">Loading...</p>
+
+  <!-- 📊 GRAPH -->
+  <h3>📈 Rainfall Trend</h3>
+  <canvas id="rainChart"></canvas>
+</div>
+
+<!-- 🧪 TEST -->
+<div id="testSection" class="card" style="display:none;">
+  <h2>🔍 Test Historical Data</h2>
+  <input id="dateInput" placeholder="YYYY-MM-DD">
+  <button onclick="testPastDate()">Test</button>
+  <p id="testResult"></p>
+</div>
+
+<!-- 🚨 ALERT BOX -->
+<div id="alertBox"></div>
+
+<script>
+
+// 🔄 TOGGLE
+const toggle=l=>(liveSection.style.display=l?"block":"none",
+testSection.style.display=l?"none":"block");
+
+// 📊 GRAPH SETUP
+const rainData=[],labels=[];
+const rainChart=new Chart(document.getElementById('rainChart').getContext('2d'),{
+type:'line',
+data:{labels,datasets:[{label:'Rainfall (mm)',data:rainData,borderWidth:2,tension:.3}]},
+options:{responsive:true,scales:{y:{beginAtZero:true}}}
+});
+
+// 🌐 LIVE FETCH + GRAPH + ALERT
+async function getFloodData(){
+try{
+const d=await(await fetch("http://127.0.0.1:8000/predict-auto")).json();
+
+// 📊 UI update
+rainfall.innerText=`Rainfall Today: ${d.rainfall_today} mm`;
+risk.innerText=`Flood Risk: ${d.flood_risk}% (${d.level})`;
+
+const level=d.level.toLowerCase();
+
+// 🎨 Color logic
+risk.style.color=level==="high"?"#ff4d4d":level==="moderate"?"#ffcc00":"#00ffcc";
+
+// 📈 Graph update
+rainData.push(d.rainfall_today);
+labels.push(new Date().toLocaleTimeString());
+if(rainData.length>10){rainData.shift();labels.shift();}
+rainChart.update();
+
+// 🚨 ALERT SYSTEM
+alertBox.style.display=level!=="low"?"block":"none";
+alertBox.style.background=level==="high"?"#ff4d4d":"#ff9900";
+alertBox.innerText=level==="high"?"🚨 HIGH FLOOD RISK!":"⚠️ Moderate Risk";
+
+}catch{risk.innerText="Error loading data ❌";}
+}
+
+// 🧪 TEST DATA
+async function testPastDate(){
+try{
+const d=await(await fetch(`http://127.0.0.1:8000/predict-date?date=${dateInput.value}`)).json();
+testResult.innerText=d.error?d.error:
+`Date: ${d.date}
+Predicted: ${d.predicted_risk}% (${d.predicted_level})
+Actual: ${d.actual_flood?"YES":"NO"}`;
+}catch{testResult.innerText="Error ❌";}
+}
+
+// 🚀 AUTO REFRESH
+getFloodData();
+setInterval(getFloodData,2000);
+
+</script>
+
+</body>
+</html>
